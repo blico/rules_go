@@ -3,6 +3,7 @@ Core go rules
 
 .. _test_filter: https://docs.bazel.build/versions/master/user-manual.html#flag--test_filter
 .. _test_arg: https://docs.bazel.build/versions/master/user-manual.html#flag--test_arg
+.. _test_env: https://docs.bazel.build/versions/master/user-manual.html#flag--test_env
 .. _Gazelle: https://github.com/bazelbuild/bazel-gazelle
 .. _GoLibrary: providers.rst#GoLibrary
 .. _GoSource: providers.rst#GoSource
@@ -807,6 +808,11 @@ Attributes
 | shards in a round-robin fashion.                                                                 |
 |                                                                                                  |
 | For more details on this attribute, consult the official Bazel documentation for shard_count_.   |
++----------------------------+-----------------------------+---------------------------------------+
+| :param:`env`               | :type:`string_dict`         | :value:`{}`                           |
++----------------------------+-----------------------------+---------------------------------------+
+| Map of environment variables to set before the test is run.                                      |
+| Equivalent to passing in the `--test_env <test_env_>`_ argument to Bazel.                        |
 +----------------------------+-----------------------------+---------------------------------------+
 
 To write an internal test, reference the library being tested with the :param:`embed`

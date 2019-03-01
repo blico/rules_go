@@ -137,3 +137,10 @@ go_library(
     data = ["z"],
     importpath = "github.com/bazelbuild/rules_go/tests/core/go_test/data_test_dep",
 )
+
+go_test(
+    name = "env_test",
+    size = "small",
+    srcs = ["env_test.go",],
+    env = {"FOO": "BAR",},
+)

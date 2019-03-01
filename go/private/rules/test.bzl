@@ -108,6 +108,8 @@ def _go_test_impl(ctx):
         "-import",
         "l_test=" + external_source.library.importpath,
     )
+    for e in ctx.attr.env.items():
+        arguments.add_joined("-env", e, join_with = ":")
     arguments.add_all(go_srcs, before_each = "-src", format_each = "l=%s")
     ctx.actions.run(
         inputs = go_srcs,
@@ -186,6 +188,7 @@ go_test = go_rule(
             providers = [GoLibrary],
             aspects = [go_archive_aspect],
         ),
+        "env": attr.string_dict(),
         "importpath": attr.string(),
         "pure": attr.string(
             values = [

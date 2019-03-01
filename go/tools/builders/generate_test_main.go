@@ -49,11 +49,17 @@ type Example struct {
 	Unordered bool
 }
 
+type Env struct {
+	Name  string
+	Value string
+}
+
 // Cases holds template data.
 type Cases struct {
 	RunDir     string
 	Imports    []*Import
 	Tests      []TestCase
+	Envs       []Env
 	Benchmarks []TestCase
 	Examples   []Example
 	TestMain   string
@@ -135,6 +141,11 @@ func main() {
 		}
 	}
 
+	// Set user specified environment variables
+	{{range .Envs}}
+	os.Setenv("{{.Name}}","{{.Value}}")
+	{{end}}
+
 	if filter := os.Getenv("TESTBRIDGE_TEST_ONLY"); filter != "" {
 		if f := flag.Lookup("test.run"); f != nil {
 			f.Value.Set(filter)
@@ -169,11 +180,13 @@ func genTestMain(args []string) error {
 	}
 	imports := multiFlag{}
 	sources := multiFlag{}
+	envs := multiFlag{}
 	flags := flag.NewFlagSet("GoTestGenTest", flag.ExitOnError)
 	goenv := envFlags(flags)
 	runDir := flags.String("rundir", ".", "Path to directory where tests should run.")
 	out := flags.String("output", "", "output file to write. Defaults to stdout.")
 	coverage := flags.Bool("coverage", false, "whether coverage is supported")
+	flags.Var(&envs, "env", "Environment variables to set in test environment")
 	flags.Var(&imports, "import", "Packages to import")
 	flags.Var(&sources, "src", "Sources to process for tests")
 	if err := flags.Parse(args); err != nil {
@@ -223,6 +236,17 @@ func genTestMain(args []string) error {
 	cases := Cases{
 		RunDir:   strings.Replace(filepath.FromSlash(*runDir), `\`, `\\`, -1),
 		Coverage: *coverage,
+	}
+
+	for _, env := range envs {
+		parts := strings.Split(env, ":")
+		if len(parts) != 2 {
+			return fmt.Errorf("Invalid environment variable %q specified", env)
+		}
+		cases.Envs = append(cases.Envs, Env{
+			Name:  parts[0],
+			Value: parts[1],
+		})
 	}
 
 	testFileSet := token.NewFileSet()
