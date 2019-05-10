@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -109,13 +110,13 @@ func compile(args []string) error {
 
 	// Check that the filtered sources don't import anything outside of
 	// the standard library and the direct dependencies.
-	_, stdImports, err := checkDirectDeps(goFiles, archives, *packageList)
+	depImports, stdImports, err := checkDirectDeps(goFiles, archives, *packageList)
 	if err != nil {
 		return err
 	}
 
 	// Build an importcfg file for the compiler.
-	importcfgName, err := buildImportcfgFileForCompile(archives, stdImports, goenv.installSuffix, filepath.Dir(*output))
+	importcfgName, err := buildImportcfgFileForCompile(depImports, stdImports, goenv.installSuffix, filepath.Dir(*output))
 	if err != nil {
 		return err
 	}
@@ -211,19 +212,18 @@ func checkDirectDeps(files []fileInfo, archives []archive, packageList string) (
 		}
 	}
 
-	depSet := map[string]bool{}
+	depImports = map[string]archive{}
+	depSet := map[string]archive{}
 	depList := make([]string, len(archives))
 	for i, arc := range archives {
-		depSet[arc.importPath] = true
+		depSet[arc.importPath] = arc
 		depList[i] = arc.importPath
 	}
-
-	importSet := map[string]bool{}
 
 	derr := depsError{known: depList}
 	for _, f := range files {
 		for _, path := range f.imports {
-			if path == "C" || isRelative(path) || importSet[path] {
+			if path == "C" || isRelative(path) {
 				// TODO(#1645): Support local (relative) import paths. We don't emit
 				// errors for them here, but they will probably break something else.
 				continue
@@ -232,9 +232,16 @@ func checkDirectDeps(files []fileInfo, archives []archive, packageList string) (
 				stdImports = append(stdImports, path)
 				continue
 			}
-			if depSet[path] {
-				depImports = append(depImports, path)
+			if arc, ok := depSet[path]; ok {
+				depImports[path] = arc
 				continue
+			}
+			if vN := modMajorRex.FindString(path); vN != "" {
+				newPath := strings.Replace(path, vN, "", 1)
+				if arc, ok := depSet[newPath]; ok {
+					depImports[path] = arc
+					continue
+				}
 			}
 			derr.missing = append(derr.missing, missingDep{f.filename, path})
 		}
