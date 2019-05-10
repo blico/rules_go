@@ -31,7 +31,7 @@ type archive struct {
 	label, importPath, packagePath, aFile, xFile string
 }
 
-func buildImportcfgFileForCompile(archives []archive, stdImports []string, installSuffix, dir string) (string, error) {
+func buildImportcfgFileForCompile(depImports map[string]archive, stdImports []string, installSuffix, dir string) (string, error) {
 	buf := &bytes.Buffer{}
 	goroot, ok := os.LookupEnv("GOROOT")
 	if !ok {
@@ -47,9 +47,9 @@ func buildImportcfgFileForCompile(archives []archive, stdImports []string, insta
 		path := filepath.Join(goroot, "pkg", installSuffix, filepath.FromSlash(imp))
 		fmt.Fprintf(buf, "packagefile %s=%s.a\n", imp, path)
 	}
-	for _, arc := range archives {
-		if arc.importPath != arc.packagePath {
-			fmt.Fprintf(buf, "importmap %s=%s\n", arc.importPath, arc.packagePath)
+	for imp, arc := range depImports {
+		if imp != arc.packagePath {
+			fmt.Fprintf(buf, "importmap %s=%s\n", imp, arc.packagePath)
 		}
 		fmt.Fprintf(buf, "packagefile %s=%s\n", arc.packagePath, arc.aFile)
 	}

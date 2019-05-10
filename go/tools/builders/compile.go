@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -118,13 +119,13 @@ func compile(args []string) error {
 
 	// Check that the filtered sources don't import anything outside of
 	// the standard library and the direct dependencies.
-	_, stdImports, err := checkDirectDeps(goFiles, archives, *packageList)
+	depImports, stdImports, err := checkDirectDeps(goFiles, archives, *packageList)
 	if err != nil {
 		return err
 	}
 
 	// Build an importcfg file for the compiler.
-	importcfgName, err := buildImportcfgFileForCompile(archives, stdImports, goenv.installSuffix, filepath.Dir(*output))
+	importcfgName, err := buildImportcfgFileForCompile(depImports, stdImports, goenv.installSuffix, filepath.Dir(*output))
 	if err != nil {
 		return err
 	}
@@ -207,6 +208,21 @@ func compile(args []string) error {
 	return nil
 }
 
+// "Minimal module compatibility" only takes effect when full module mode is disabled 
+// for the go tool, such as if you have set GO111MODULE=off in Go 1.11, 
+// or are using Go versions 1.9.7+ or 1.10.3+.
+func checkMinimalModuleCompatibility() bool {
+	version := runtime.Version()
+	if strings.HasPrefix(version, "go1.11") {
+		mode, ok := os.LookupEnv("GO111MODULE")
+		return mode == "off"
+	}
+	/*
+	check if go 1.9.7+ or go1.10.3+
+	*/
+	return false
+}
+
 // TODO(#1891): consolidate this logic when compile and asm are in the
 // same binary.
 func buildSymabisFile(goenv *env, sFiles, hFiles []*goMetadata, asmhdr string) (string, error) {
@@ -279,7 +295,9 @@ func buildSymabisFile(goenv *env, sFiles, hFiles []*goMetadata, asmhdr string) (
 	return symabisName, err
 }
 
-func checkDirectDeps(files []*goMetadata, archives []archive, packageList string) (depImports, stdImports []string, err error) {
+var modMajorRex = regexp.MustCompile(`/v\d+(?:/|$)`)
+
+func checkDirectDeps(files []*goMetadata, archives []archive, packageList string) (depImports map[string]archive, stdImports []string, err error) {
 	packagesTxt, err := ioutil.ReadFile(packageList)
 	if err != nil {
 		log.Fatal(err)
@@ -292,19 +310,20 @@ func checkDirectDeps(files []*goMetadata, archives []archive, packageList string
 		}
 	}
 
-	depSet := map[string]bool{}
+	depImports = map[string]archive{}
+	depSet := map[string]archive{}
 	depList := make([]string, len(archives))
 	for i, arc := range archives {
-		depSet[arc.importPath] = true
+		depSet[arc.importPath] = arc
 		depList[i] = arc.importPath
 	}
 
-	importSet := map[string]bool{}
+	compatMode := checkMinimalModuleCompatibility()
 
 	derr := depsError{known: depList}
 	for _, f := range files {
 		for _, path := range f.imports {
-			if path == "C" || isRelative(path) || importSet[path] {
+			if path == "C" || isRelative(path) {
 				// TODO(#1645): Support local (relative) import paths. We don't emit
 				// errors for them here, but they will probably break something else.
 				continue
@@ -313,9 +332,18 @@ func checkDirectDeps(files []*goMetadata, archives []archive, packageList string
 				stdImports = append(stdImports, path)
 				continue
 			}
-			if depSet[path] {
-				depImports = append(depImports, path)
+			if arc, ok := depSet[path]; ok {
+				depImports[path] = arc
 				continue
+			}
+			if compatMode {
+				if vN := modMajorRex.FindString(path); vN != "" {
+					newPath := strings.Replace(path, vN, "", 1)
+					if arc, ok := depSet[newPath]; ok {
+						depImports[path] = arc
+						continue
+					}
+				}
 			}
 			derr.missing = append(derr.missing, missingDep{f.filename, path})
 		}
