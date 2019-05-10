@@ -49,6 +49,8 @@ func init() {
 	}
 }
 
+var typesSizes = types.SizesFor("gc", os.Getenv("GOARCH"))
+
 func main() {
 	log.SetFlags(0) // no timestamp
 	log.SetPrefix("nogo: ")
@@ -88,7 +90,7 @@ func run(args []string) error {
 		return fmt.Errorf("errors found by nogo during build-time code analysis:\n%s\n", diagnostics)
 	}
 	if *xPath != "" {
-		if err := ioutil.WriteFile(*xPath, facts, 0666); err != nil {
+		if err := ioutil.WriteFile(abs(*xPath), facts, 0666); err != nil {
 			return fmt.Errorf("error writing facts: %v", err)
 		}
 	}
@@ -268,6 +270,7 @@ func (act *action) execOnce() {
 		ExportPackageFact: act.pkg.facts.ExportPackageFact,
 		ImportObjectFact:  act.pkg.facts.ImportObjectFact,
 		ExportObjectFact:  act.pkg.facts.ExportObjectFact,
+		TypesSizes:        typesSizes,
 	}
 	act.pass = pass
 

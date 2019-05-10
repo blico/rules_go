@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load(
+    "@io_bazel_rules_go//go/private:mode.bzl",
+    "LINKMODE_NORMAL",
+)
 load("@io_bazel_rules_go//go/private:rules/binary.bzl", "go_binary")
 load("@io_bazel_rules_go//go/private:rules/library.bzl", "go_library")
 load("@io_bazel_rules_go//go/private:rules/test.bzl", "go_test")
@@ -50,6 +54,7 @@ _COMMON_ATTRS = {
     "tags": ["manual"],
     "restricted_to": None,
     "compatible_with": None,
+    "linkmode": LINKMODE_NORMAL,
 }
 
 def _deprecate(attr, name, ruletype, kwargs, message):
@@ -70,9 +75,11 @@ def _objc(name, kwargs):
     return objcopts
 
 def _cgo(name, kwargs):
-    cgo = kwargs.pop("cgo", False)
-    if not cgo:
+    if not kwargs.get("cgo", False) or not kwargs.get("objc", False):
         return
+
+    kwargs.pop("cgo")
+    linkmode = kwargs.get("linkmode", None)
     cgo_attrs = {"name": name}
     for key, default in _CGO_ATTRS.items():
         cgo_attrs[key] = kwargs.pop(key, default)

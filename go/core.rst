@@ -598,6 +598,8 @@ Attributes
 |                                                                                                  |
 | :value:`normal`                                                                                  |
 |     Builds a normal executable with position-dependent code.                                     |
+| :value:`pie`                                                                                     |
+|     Builds a position-independent executable.                                                    |
 | :value:`plugin`                                                                                  |
 |     Builds a shared library that can be loaded as a Go plugin. Only supported                    |
 |     on platforms that support plugins.                                                           |
@@ -627,6 +629,12 @@ equivalent of ``go test ./...``), run
 ::
 
   bazel test --test_output=errors //...
+  
+To run a Go benchmark test, run
+
+::
+
+  bazel run //path/to:test -- -test.bench=.
 
 You can run specific tests by passing the `--test_filter=pattern <test_filter_>`_ argument to Bazel.
 You can pass arguments to tests by passing `--test_arg=arg <test_arg_>`_ arguments to Bazel.

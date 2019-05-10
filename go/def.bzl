@@ -31,6 +31,7 @@ load(
 )
 load(
     "@io_bazel_rules_go//go/private:go_toolchain.bzl",
+    _declare_toolchains = "declare_toolchains",
     _go_toolchain = "go_toolchain",
 )
 load(
@@ -52,10 +53,6 @@ load(
     _go_path = "go_path",
 )
 load(
-    "@io_bazel_rules_go//go/private:tools/vet.bzl",
-    _go_vet_test = "go_vet_test",
-)
-load(
     "@io_bazel_rules_go//go/private:rules/rule.bzl",
     _go_rule = "go_rule",
 )
@@ -70,14 +67,15 @@ load(
 
 # Current version or next version to be tagged. Gazelle and other tools may
 # check this to determine compatibility.
-RULES_GO_VERSION = "0.17.0"
+RULES_GO_VERSION = "0.18.0"
 
+declare_toolchains = _declare_toolchains
 go_context = _go_context
-go_tool_library = _go_tool_library
-nogo = _nogo
 go_embed_data = _go_embed_data
 go_sdk = _go_sdk
+go_tool_library = _go_tool_library
 go_toolchain = _go_toolchain
+nogo = _nogo
 
 GoLibrary = _GoLibrary
 """See go/providers.rst#GoLibrary for full documentation."""
@@ -120,10 +118,8 @@ go_path = _go_path
         "mode": attr.string(default="link", values=["link", "copy"]) # Whether to copy files or produce soft links
 """
 
-go_vet_test = _go_vet_test
-"""
-    go_vet_test
-"""
+def go_vet_test(*args, **kwargs):
+    fail("The go_vet_test rule has been removed. Please migrate to nogo instead, which supports vet tests.")
 
 def go_rules_dependencies():
     _moved("go_rules_dependencies")
